@@ -1,0 +1,4 @@
+ask-sdk-core==1.11.0
+ask-sdk-model
+boto3>=1.26.0
+requests>=2.20.0 

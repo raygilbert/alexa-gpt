@@ -39,7 +39,7 @@ Choose "Alexa-hosted (Python)" for the backend resources.
 
 ### 5.
 You now have two options:
-- Click on "Import Skill", paste the link of this repository (https://github.com/k4l1sh/alexa-gpt.git) and click on "Import".
+- Click on "Import Skill", paste the link of this repository and click on "Import".
 ![template](images/import_git_skill.png)
 
 Or if you want to create the skill manually
@@ -98,6 +98,8 @@ However, if you chose to manually create the skill, replace the existing JSON co
 
 ![json_editor](images/intents_json_editor.png)
 
+Also, make sure Alexa Presentation Language (APL) is enabled in the Interfaces tab of your Alexa Developer Console for your skill.
+
 ### 8.
 Save the model and click on "Build Model".
 
@@ -108,6 +110,7 @@ Go to "Code" section and add "openai" to requirements.txt. Your requirements.txt
 ask-sdk-core==1.11.0
 boto3==1.9.216
 requests>=2.20.0
+ask-sdk-model
 ```
 
 ### 10.

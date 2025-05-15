@@ -1,7 +1,7 @@
 {
     "interactionModel": {
         "languageModel": {
-            "invocationName": "chat",
+            "invocationName": "jabber bot",
             "intents": [
                 {
                     "name": "GptQueryIntent",
@@ -25,6 +25,14 @@
                 },
                 {
                     "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.NoIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.YesIntent",
                     "samples": []
                 },
                 {

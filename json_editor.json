@@ -1,18 +1,31 @@
 {
     "interactionModel": {
         "languageModel": {
-            "invocationName": "chat",
+            "invocationName": "jabber bot",
             "intents": [
                 {
                     "name": "GptQueryIntent",
                     "slots": [
                         {
                             "name": "query",
-                            "type": "AMAZON.Person"
+                            "type": "AMAZON.SearchQuery"
                         }
                     ],
                     "samples": [
-                        "{query}"
+                        "tell me {query}",
+                        "what is {query}",
+                        "who is {query}",
+                        "where is {query}",
+                        "when is {query}",
+                        "why is {query}",
+                        "how to {query}",
+                        "about {query}",
+                        "explain {query}",
+                        "answer {query}",
+                        "I want to know {query}",
+                        "search for {query}",
+                        "find {query}",
+                        "give me information about {query}"
                     ]
                 },
                 {
@@ -28,7 +41,19 @@
                     "samples": []
                 },
                 {
+                    "name": "AMAZON.NoIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.YesIntent",
+                    "samples": []
+                },
+                {
                     "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.FallbackIntent",
                     "samples": []
                 }
             ],
