@@ -34,7 +34,7 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
         if supports_apl(handler_input):
             logger.info("Creating APL Sequence directive")
             
-            # Create an APL document
+             # Create an APL document that uses Sequence
             apl_document = {
                 "type": "APL",
                 "version": "1.5",
@@ -46,17 +46,17 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
                     "items": [
                         {
                             "type": "Container",
-                            "width": "100vw",
-                            "height": "100vh",  # Changed from 100vw to 100vh
+                            "width": "100%",
+                            "height": "100%",
                             "items": [
                                 {
                                     "type": "Sequence",
                                     "width": "100%",
                                     "height": "100%",
-                                    "data": "${payload.sequenceData}",  # Update this reference
-                                    "numbered": False,  
+                                    "data": "${payload}",
+                                    "numbered": false,
                                     "scrollDirection": "vertical",
-                                    "backgroundVisible": False, 
+                                    "backgroundVisible": false,
                                     "items": [
                                         {
                                             "type": "Text",
@@ -99,17 +99,15 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
                 }
             }
             
-            # Change the datasources to be an object (not an array)
+            # Create datasources as an array for the Sequence
             datasources = {
-                "payload": {
-                    "sequenceData": [  # Move the array here
-                        {
-                            "titleText": title,
-                            "primaryText": primary_text,
-                            "secondaryText": secondary_text or ""
-                        }
-                    ]
-                }
+                "payload": [
+                    {
+                        "titleText": title,
+                        "primaryText": primary_text,
+                        "secondaryText": secondary_text or ""
+                    }
+                ]
             }
             
             logger.info(f"APL Sequence Document: {json.dumps(apl_document)[:200]}...")
