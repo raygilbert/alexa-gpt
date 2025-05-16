@@ -54,9 +54,9 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
                                     "width": "100%",
                                     "height": "100%",
                                     "data": "${payload}",
-                                    "numbered": false,
+                                    "numbered": False,  
                                     "scrollDirection": "vertical",
-                                    "backgroundVisible": false,
+                                    "backgroundVisible": False, 
                                     "items": [
                                         {
                                             "type": "Text",
@@ -124,6 +124,37 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
     except Exception as e:
         logger.error(f"Error creating APL Sequence directive: {str(e)}", exc_info=True)
         return None
+
+def generate_gpt_response(chat_history, new_question):
+    try:
+        api_key = get_api_key()
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        url = "https://api.openai.com/v1/chat/completions"
+
+        messages = [{"role": "system", "content": "You are a helpful assistant. Provide clear, concise answers. Keep responses under 50 words."}]
+        for q, a in chat_history[-5:]:
+            messages.append({"role": "user", "content": q})
+            messages.append({"role": "assistant", "content": a})
+        messages.append({"role": "user", "content": new_question})
+
+        data = {"messages": messages, **MODEL_CONFIG}
+        logger.info(f"Sending request to OpenAI API")
+        res = requests.post(url, headers=headers, data=json.dumps(data), timeout=10)
+        
+        if res.ok:
+            response_text = res.json()['choices'][0]['message']['content'].strip()
+            logger.info(f"Received response from OpenAI API: {response_text[:50]}...")
+            return response_text
+        else:
+            logger.error(f"OpenAI error: {res.status_code} - {res.text}")
+            return "I'm having trouble connecting right now. Please try again."
+
+    except Exception as e:
+        logger.error(f"Error generating GPT response: {e}", exc_info=True)
+        return "I encountered an error processing your request."
 
 class LaunchRequestHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
@@ -249,7 +280,7 @@ class NoIntentHandler(AbstractRequestHandler):
         speak_output = "Thanks for chatting! Goodbye."
         
         rb = handler_input.response_builder
-        rb.speak(speak_output)
+        rb.speak(speak_output).set_should_end_session(True)
         
         # Always add a card for non-screen devices
         rb.set_card(
@@ -276,33 +307,6 @@ class NoIntentHandler(AbstractRequestHandler):
 
         return rb.response
 
-class CancelOrStopIntentHandler(AbstractRequestHandler):
-    def can_handle(self, handler_input):
-        return (
-            ask_utils.is_intent_name("AMAZON.CancelIntent")(handler_input) or
-            ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input)
-        )
-
-    def handle(self, handler_input):
-        speak_output = "Leaving Chat G.P.T. mode"
-        rb = handler_input.response_builder.speak(speak_output)
-
-        has_display = supports_display(handler_input)
-        logger.info(f"Cancel/Stop - Device has display capabilities: {has_display}")
-        
-        if has_display:
-            directive = create_display_directive(
-                handler_input,
-                title="Goodbye",
-                primary_text="Leaving ChatGPT Mode",
-                secondary_text="Thanks for chatting!"
-            )
-            if directive:
-                rb.add_directive(directive)
-                logger.info("Added display directive to cancel/stop response")
-
-        return rb.response
-
 class HelpIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
         return ask_utils.is_intent_name("AMAZON.HelpIntent")(handler_input)
@@ -312,11 +316,18 @@ class HelpIntentHandler(AbstractRequestHandler):
         
         rb = handler_input.response_builder.speak(speak_output).ask(speak_output)
         
-        has_display = supports_display(handler_input)
-        logger.info(f"Help - Device has display capabilities: {has_display}")
+        # Add a card
+        rb.set_card(
+            SimpleCard(
+                title="Help with ChatGPT",
+                content=speak_output
+            )
+        )
         
-        if has_display:
-            directive = create_display_directive(
+        # For devices with screens, add APL directive
+        if supports_apl(handler_input):
+            logger.info("Help - Device has APL capabilities")
+            directive = create_apl_directive(
                 handler_input,
                 title="How to Use ChatGPT",
                 primary_text="You can ask me any question, and I'll use ChatGPT to provide an answer.",
@@ -324,8 +335,44 @@ class HelpIntentHandler(AbstractRequestHandler):
             )
             if directive:
                 rb.add_directive(directive)
-                logger.info("Added display directive to help response")
+                logger.info("Added APL directive to help response")
                 
+        return rb.response
+
+class CancelOrStopIntentHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return (
+            ask_utils.is_intent_name("AMAZON.CancelIntent")(handler_input) or
+            ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input)
+        )
+
+    def handle(self, handler_input):
+        speak_output = "Leaving Chat G.P.T. mode"
+        
+        rb = handler_input.response_builder
+        rb.speak(speak_output).set_should_end_session(True)
+        
+        # Add a card
+        rb.set_card(
+            SimpleCard(
+                title="Goodbye",
+                content="Leaving ChatGPT Mode. Thanks for chatting!"
+            )
+        )
+
+        # For devices with screens, add APL directive
+        if supports_apl(handler_input):
+            logger.info("Cancel/Stop - Device has APL capabilities")
+            directive = create_apl_directive(
+                handler_input,
+                title="Goodbye",
+                primary_text="Leaving ChatGPT Mode",
+                secondary_text="Thanks for chatting!"
+            )
+            if directive:
+                rb.add_directive(directive)
+                logger.info("Added APL directive to cancel/stop response")
+
         return rb.response
 
 class FallbackIntentHandler(AbstractRequestHandler):
@@ -337,11 +384,18 @@ class FallbackIntentHandler(AbstractRequestHandler):
         
         rb = handler_input.response_builder.speak(speak_output).ask(speak_output)
         
-        has_display = supports_display(handler_input)
-        logger.info(f"Fallback - Device has display capabilities: {has_display}")
+        # Add a card
+        rb.set_card(
+            SimpleCard(
+                title="I Didn't Understand",
+                content=speak_output
+            )
+        )
         
-        if has_display:
-            directive = create_display_directive(
+        # For devices with screens, add APL directive
+        if supports_apl(handler_input):
+            logger.info("Fallback - Device has APL capabilities")
+            directive = create_apl_directive(
                 handler_input,
                 title="I Didn't Understand",
                 primary_text="I'm not sure what you're asking.",
@@ -349,9 +403,20 @@ class FallbackIntentHandler(AbstractRequestHandler):
             )
             if directive:
                 rb.add_directive(directive)
-                logger.info("Added display directive to fallback response")
+                logger.info("Added APL directive to fallback response")
                 
         return rb.response
+
+# Add this simple handler for SessionEndedRequest
+class SessionEndedRequestHandler(AbstractRequestHandler):
+    """Handler for Session End."""
+    def can_handle(self, handler_input):
+        return ask_utils.is_request_type("SessionEndedRequest")(handler_input)
+
+    def handle(self, handler_input):
+        # Just log the session ended and return a simple response
+        logger.info("Session ended")
+        return handler_input.response_builder.response
 
 class CatchAllExceptionHandler(AbstractExceptionHandler):
     def can_handle(self, handler_input, exception):
@@ -362,53 +427,28 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
         speak_output = "Sorry, I had trouble doing what you asked. Please try again."
 
         rb = handler_input.response_builder.speak(speak_output).ask(speak_output)
-
-        has_display = supports_display(handler_input)
-        logger.info(f"Exception - Device has display capabilities: {has_display}")
         
-        if has_display:
-            directive = create_display_directive(
+        # Add a card
+        rb.set_card(
+            SimpleCard(
+                title="Error Occurred",
+                content="Sorry, I had trouble doing what you asked. Please try again."
+            )
+        )
+        
+        # For devices with screens, add APL directive
+        if supports_apl(handler_input):
+            directive = create_apl_directive(
                 handler_input,
-                title="Error",
-                primary_text="An error occurred",
-                secondary_text="Sorry, I had trouble doing what you asked. Please try again."
+                title="Error Occurred",
+                primary_text="Sorry, I had trouble doing what you asked.",
+                secondary_text="Please try again."
             )
             if directive:
                 rb.add_directive(directive)
-                logger.info("Added display directive to exception response")
+                logger.info("Added APL directive to exception response")
 
         return rb.response
-
-def generate_gpt_response(chat_history, new_question):
-    try:
-        api_key = get_api_key()
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        url = "https://api.openai.com/v1/chat/completions"
-
-        messages = [{"role": "system", "content": "You are a helpful assistant. Provide clear, concise answers. Keep responses under 50 words."}]
-        for q, a in chat_history[-5:]:
-            messages.append({"role": "user", "content": q})
-            messages.append({"role": "assistant", "content": a})
-        messages.append({"role": "user", "content": new_question})
-
-        data = {"messages": messages, **MODEL_CONFIG}
-        logger.info(f"Sending request to OpenAI API")
-        res = requests.post(url, headers=headers, data=json.dumps(data), timeout=10)
-        
-        if res.ok:
-            response_text = res.json()['choices'][0]['message']['content'].strip()
-            logger.info(f"Received response from OpenAI API: {response_text[:50]}...")
-            return response_text
-        else:
-            logger.error(f"OpenAI error: {res.status_code} - {res.text}")
-            return "I'm having trouble connecting right now. Please try again."
-
-    except Exception as e:
-        logger.error(f"Error generating GPT response: {e}", exc_info=True)
-        return "I encountered an error processing your request."
 
 # Create skill builder
 sb = SkillBuilder()
@@ -421,6 +461,7 @@ sb.add_request_handler(NoIntentHandler())
 sb.add_request_handler(HelpIntentHandler())
 sb.add_request_handler(FallbackIntentHandler())
 sb.add_request_handler(CancelOrStopIntentHandler())
+sb.add_request_handler(SessionEndedRequestHandler())  # Add the SessionEndedRequestHandler
 
 # Add exception handler
 sb.add_exception_handler(CatchAllExceptionHandler())
