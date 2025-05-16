@@ -34,7 +34,7 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
         if supports_apl(handler_input):
             logger.info("Creating APL Sequence directive")
             
-            # Create an APL document that uses Sequence
+            # Create an APL document
             apl_document = {
                 "type": "APL",
                 "version": "1.5",
@@ -47,13 +47,13 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
                         {
                             "type": "Container",
                             "width": "100vw",
-                            "height": "100vw",
+                            "height": "100vh",  # Changed from 100vw to 100vh
                             "items": [
                                 {
                                     "type": "Sequence",
                                     "width": "100%",
                                     "height": "100%",
-                                    "data": "${payload}",
+                                    "data": "${payload.sequenceData}",  # Update this reference
                                     "numbered": False,  
                                     "scrollDirection": "vertical",
                                     "backgroundVisible": False, 
@@ -99,15 +99,17 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
                 }
             }
             
-            # Create datasources as an array for the Sequence
+            # Change the datasources to be an object (not an array)
             datasources = {
-                "payload": [
-                    {
-                        "titleText": title,
-                        "primaryText": primary_text,
-                        "secondaryText": secondary_text or ""
-                    }
-                ]
+                "payload": {
+                    "sequenceData": [  # Move the array here
+                        {
+                            "titleText": title,
+                            "primaryText": primary_text,
+                            "secondaryText": secondary_text or ""
+                        }
+                    ]
+                }
             }
             
             logger.info(f"APL Sequence Document: {json.dumps(apl_document)[:200]}...")
@@ -122,7 +124,7 @@ def create_apl_directive(handler_input, title, primary_text, secondary_text=None
             return None
             
     except Exception as e:
-        logger.error(f"Error creating APL Sequence directive: {str(e)}", exc_info=True)
+        logger.error(f"Error creating APL Directive: {str(e)}", exc_info=True)
         return None
 
 def generate_gpt_response(chat_history, new_question):
@@ -407,15 +409,21 @@ class FallbackIntentHandler(AbstractRequestHandler):
                 
         return rb.response
 
-# Add this simple handler for SessionEndedRequest
 class SessionEndedRequestHandler(AbstractRequestHandler):
-    """Handler for Session End."""
     def can_handle(self, handler_input):
         return ask_utils.is_request_type("SessionEndedRequest")(handler_input)
 
     def handle(self, handler_input):
-        # Just log the session ended and return a simple response
-        logger.info("Session ended")
+        reason = "unknown"
+        if hasattr(handler_input.request_envelope.request, 'reason'):
+            reason = handler_input.request_envelope.request.reason
+        
+        logger.info(f"Session ended with reason: {reason}")
+        
+        if hasattr(handler_input.request_envelope.request, 'error'):
+            error = handler_input.request_envelope.request.error
+            logger.error(f"Session ended error details: {json.dumps(error.__dict__) if hasattr(error, '__dict__') else error}")
+            
         return handler_input.response_builder.response
 
 class CatchAllExceptionHandler(AbstractExceptionHandler):
